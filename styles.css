@@ -1,0 +1,86 @@
+:root { --border: 4px; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: 'Comic Sans MS', cursive;
+  min-height: 100svh;
+  min-height: 100dvh;
+  background-color: #ffe6ef;
+  overflow: hidden;
+  touch-action: none;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: url('assets/background.png') center/cover no-repeat;
+  z-index: -1;
+  will-change: transform;
+}
+
+#app {
+  min-height: 100svh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  gap: 6px;
+}
+
+#gameCanvas {
+  display: block;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.6);
+  border: var(--border) solid pink;
+  border-radius: 20px;
+  outline: 1px solid rgba(255,105,180,0.7);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  touch-action: none;
+}
+
+#scoreboard {
+  text-align: center;
+  font-size: clamp(16px, 4vw, 24px);
+  color: deeppink;
+  font-weight: bold;
+}
+
+#startScreen, #gameOverScreen {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 182, 193, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: clamp(20px, 6vw, 36px);
+  color: deeppink;
+  z-index: 10;
+  text-align: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.screenButton {
+  margin-top: 20px;
+  padding: 12px 24px;
+  font-size: clamp(14px, 4vw, 20px);
+  border: none;
+  border-radius: 10px;
+  background-color: hotpink;
+  color: white;
+  cursor: pointer;
+}
+
+.screenButton:hover { background-color: deeppink; }
+
+h2 {
+  text-align: center;
+  color: hotpink;
+  margin: 4px 0 0;
+  font-size: clamp(18px, 6vw, 28px);
+}
