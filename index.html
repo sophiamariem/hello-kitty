@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Hello Kitty & Friends Game for Isabella</title>
   <link rel="icon" href="assets/hello-kitty.png" type="image/png">
   <style>
@@ -14,7 +14,6 @@
       overflow: hidden;
       touch-action: none;
     }
-
     #gameCanvas {
       display: block;
       margin: 0 auto;
@@ -23,19 +22,16 @@
       border-radius: 20px;
       touch-action: none;
     }
-
     #scoreboard {
       text-align: center;
-      font-size: 1.5em;
+      font-size: clamp(16px, 4vw, 24px);
       margin: 10px;
       color: deeppink;
       font-weight: bold;
     }
-
     #startScreen, #gameOverScreen {
-      position: absolute;
-      top: 0;
-      left: 0;
+      position: fixed;
+      inset: 0;
       width: 100%;
       height: 100%;
       background: rgba(255, 182, 193, 0.9);
@@ -43,24 +39,31 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      font-size: 2em;
+      font-size: clamp(20px, 6vw, 36px);
       color: deeppink;
       z-index: 10;
+      text-align: center;
+      padding: 16px;
+      box-sizing: border-box;
     }
-
     .screenButton {
       margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 1em;
+      padding: 12px 24px;
+      font-size: clamp(14px, 4vw, 20px);
       border: none;
       border-radius: 10px;
       background-color: hotpink;
       color: white;
       cursor: pointer;
     }
-
     .screenButton:hover {
       background-color: deeppink;
+    }
+    h2 {
+      text-align: center;
+      color: hotpink;
+      margin: 8px 0 0;
+      font-size: clamp(18px, 6vw, 28px);
     }
   </style>
 </head>
@@ -72,11 +75,11 @@
 
 <div id="gameOverScreen" style="display:none;">
   <div>💖 Game Over, Isabella! 💖</div>
-  <div id="finalScore" style="font-size:1.5em; margin-top:10px;"></div>
+  <div id="finalScore" style="font-size:clamp(16px,4vw,22px); margin-top:10px;"></div>
   <button class="screenButton" id="restartButton">Play Again</button>
 </div>
 
-<h2 style="text-align:center; color:hotpink;">🎀 Hi Isabella! 🎀</h2>
+<h2>🎀 Hi Isabella! 🎀</h2>
 <div id="scoreboard">Score: 0 | Lives: 3</div>
 <canvas id="gameCanvas" width="500" height="600"></canvas>
 
@@ -86,6 +89,9 @@
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+
+    const GW = 500;
+    const GH = 600;
 
     let score = 0;
     let lives = 3;
@@ -109,18 +115,18 @@
     heartImg.src = 'assets/heart.png';
     mudImg.src = 'assets/mud.png';
 
-    const player = { x: canvas.width / 2 - 30, y: canvas.height - 80, width: 60, height: 60, speed: 5 };
+    const player = { x: GW / 2 - 30, y: GH - 80, width: 60, height: 60, speed: 5 };
     const hearts = [];
     const muds = [];
 
     function spawnHeart() {
         if (heartImg.complete && heartImg.naturalWidth > 0) {
-            hearts.push({ x: Math.random() * (canvas.width - 30), y: -30, width: 30, height: 30, speed: 2 + Math.random() * 2 });
+            hearts.push({ x: Math.random() * (GW - 30), y: -30, width: 30, height: 30, speed: 2 + Math.random() * 2 });
         }
     }
     function spawnMud() {
         if (mudImg.complete && mudImg.naturalWidth > 0) {
-            muds.push({ x: Math.random() * (canvas.width - 40), y: -40, width: 40, height: 40, speed: 2 + Math.random() * 3 });
+            muds.push({ x: Math.random() * (GW - 40), y: -40, width: 40, height: 40, speed: 2 + Math.random() * 3 });
         }
     }
 
@@ -128,16 +134,26 @@
     document.addEventListener('keydown', e => keys[e.key] = true);
     document.addEventListener('keyup', e => keys[e.key] = false);
 
-    let touchX = null;
-    canvas.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+    let lastTouchVirtualX = null;
+    function clientXToVirtual(x) {
+        const rect = canvas.getBoundingClientRect();
+        return ((x - rect.left) * GW) / rect.width;
+    }
+    canvas.addEventListener('touchstart', e => {
+        if (!e.touches.length) return;
+        lastTouchVirtualX = clientXToVirtual(e.touches[0].clientX);
+    }, { passive: true });
     canvas.addEventListener('touchmove', e => {
-        if (!gameRunning || touchX === null) return;
-        const newX = e.touches[0].clientX;
-        const delta = newX - touchX;
+        if (!gameRunning || lastTouchVirtualX === null || !e.touches.length) return;
+        const newVirtualX = clientXToVirtual(e.touches[0].clientX);
+        const delta = newVirtualX - lastTouchVirtualX;
         player.x += delta;
-        player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
-        touchX = newX;
-    });
+        if (player.x < 0) player.x = 0;
+        if (player.x > GW - player.width) player.x = GW - player.width;
+        lastTouchVirtualX = newVirtualX;
+        e.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => { lastTouchVirtualX = null; }, { passive: true });
 
     function playSound(sound) {
         if (!sound) return;
@@ -147,12 +163,12 @@
 
     function update() {
         if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
-        if (keys['ArrowRight'] && player.x < canvas.width - player.width) player.x += player.speed;
+        if (keys['ArrowRight'] && player.x < GW - player.width) player.x += player.speed;
 
         for (let i = hearts.length - 1; i >= 0; i--) {
             let h = hearts[i];
             h.y += h.speed;
-            if (h.y > canvas.height) hearts.splice(i, 1);
+            if (h.y > GH) hearts.splice(i, 1);
             else if (h.x < player.x + player.width && h.x + h.width > player.x && h.y < player.y + player.height && h.y + h.height > player.y) {
                 score++;
                 playSound(collectSound);
@@ -163,7 +179,7 @@
         for (let i = muds.length - 1; i >= 0; i--) {
             let m = muds[i];
             m.y += m.speed;
-            if (m.y > canvas.height) muds.splice(i, 1);
+            if (m.y > GH) muds.splice(i, 1);
             else if (m.x < player.x + player.width && m.x + m.width > player.x && m.y < player.y + player.height && m.y + m.height > player.y) {
                 lives--;
                 playSound(hitSound);
@@ -186,7 +202,13 @@
     }
 
     function startGame() {
-        score = 0; lives = 3; hearts.length = 0; muds.length = 0; gameRunning = true;
+        score = 0;
+        lives = 3;
+        hearts.length = 0;
+        muds.length = 0;
+        player.x = GW / 2 - player.width / 2;
+        player.y = GH - 80;
+        gameRunning = true;
         document.getElementById('gameOverScreen').style.display = 'none';
         document.getElementById('startScreen').style.display = 'none';
         startSpawning();
@@ -201,13 +223,48 @@
     }
 
     function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, GW, GH);
         if (kittyImg.complete && kittyImg.naturalWidth > 0) ctx.drawImage(kittyImg, player.x, player.y, player.width, player.height);
-        hearts.forEach(h => { if (heartImg.complete && heartImg.naturalWidth > 0) ctx.drawImage(heartImg, h.x, h.y, h.width, h.height); });
-        muds.forEach(m => { if (mudImg.complete && mudImg.naturalWidth > 0) ctx.drawImage(mudImg, m.x, m.y, m.width, m.height); });
+        for (let i = 0; i < hearts.length; i++) {
+            const h = hearts[i];
+            if (heartImg.complete && heartImg.naturalWidth > 0) ctx.drawImage(heartImg, h.x, h.y, h.width, h.height);
+        }
+        for (let i = 0; i < muds.length; i++) {
+            const m = muds[i];
+            if (mudImg.complete && mudImg.naturalWidth > 0) ctx.drawImage(mudImg, m.x, m.y, m.width, m.height);
+        }
     }
 
-    function gameLoop() { if (gameRunning) { update(); draw(); requestAnimationFrame(gameLoop); } }
+    function gameLoop() {
+        if (gameRunning) {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+    }
+
+    function resizeCanvas() {
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const viewportW = window.innerWidth;
+        const viewportH = window.innerHeight;
+        const scoreboardH = document.getElementById('scoreboard').offsetHeight || 0;
+        const headerH = document.querySelector('h2').offsetHeight || 0;
+        const vPad = 24;
+        const maxW = viewportW * 0.95;
+        const maxH = Math.max(200, viewportH - scoreboardH - headerH - vPad - 16);
+        const scale = Math.min(maxW / GW, maxH / GH);
+        const displayW = Math.floor(GW * scale);
+        const displayH = Math.floor(GH * scale);
+        canvas.style.width = displayW + 'px';
+        canvas.style.height = displayH + 'px';
+        canvas.width = Math.floor(displayW * dpr);
+        canvas.height = Math.floor(displayH * dpr);
+        ctx.setTransform(canvas.width / GW, 0, 0, canvas.height / GH, 0, 0);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 0));
+    document.addEventListener('DOMContentLoaded', resizeCanvas);
 
     document.getElementById('startButton').addEventListener('click', () => { if (imagesLoaded === 3) startGame(); else alert('Loading assets… please wait!'); });
     document.getElementById('restartButton').addEventListener('click', () => { if (imagesLoaded === 3) startGame(); else alert('Loading assets… please wait!'); });
