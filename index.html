@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hello Kitty & Friends Game for Isabella</title>
+  <link rel="icon" href="assets/hello-kitty.png" type="image/png">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Comic Sans MS', cursive;
+      background: url('assets/background.png') no-repeat center center/cover;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    #gameCanvas {
+      display: block;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.6);
+      border: 4px solid pink;
+      border-radius: 20px;
+      touch-action: none;
+    }
+
+    #scoreboard {
+      text-align: center;
+      font-size: 1.5em;
+      margin: 10px;
+      color: deeppink;
+      font-weight: bold;
+    }
+
+    #startScreen, #gameOverScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 182, 193, 0.9);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 2em;
+      color: deeppink;
+      z-index: 10;
+    }
+
+    .screenButton {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1em;
+      border: none;
+      border-radius: 10px;
+      background-color: hotpink;
+      color: white;
+      cursor: pointer;
+    }
+
+    .screenButton:hover {
+      background-color: deeppink;
+    }
+  </style>
+</head>
+<body>
+<div id="startScreen">
+  <div>🎀 Welcome Isabella! 🎀</div>
+  <button class="screenButton" id="startButton">Play</button>
+</div>
+
+<div id="gameOverScreen" style="display:none;">
+  <div>💖 Game Over, Isabella! 💖</div>
+  <div id="finalScore" style="font-size:1.5em; margin-top:10px;"></div>
+  <button class="screenButton" id="restartButton">Play Again</button>
+</div>
+
+<h2 style="text-align:center; color:hotpink;">🎀 Hi Isabella! 🎀</h2>
+<div id="scoreboard">Score: 0 | Lives: 3</div>
+<canvas id="gameCanvas" width="500" height="600"></canvas>
+
+<audio id="collectSound" src="assets/coin.wav" preload="auto"></audio>
+<audio id="hitSound" src="assets/oops.wav" preload="auto"></audio>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let score = 0;
+    let lives = 3;
+    let gameRunning = false;
+
+    const kittyImg = new Image();
+    const heartImg = new Image();
+    const mudImg = new Image();
+
+    let imagesLoaded = 0;
+
+    const collectSound = document.getElementById('collectSound');
+    const hitSound = document.getElementById('hitSound');
+
+    function checkAllLoaded() { imagesLoaded++; }
+    kittyImg.onload = checkAllLoaded;
+    heartImg.onload = checkAllLoaded;
+    mudImg.onload = checkAllLoaded;
+
+    kittyImg.src = 'assets/hello-kitty.png';
+    heartImg.src = 'assets/heart.png';
+    mudImg.src = 'assets/mud.png';
+
+    const player = { x: canvas.width / 2 - 30, y: canvas.height - 80, width: 60, height: 60, speed: 5 };
+    const hearts = [];
+    const muds = [];
+
+    function spawnHeart() {
+        if (heartImg.complete && heartImg.naturalWidth > 0) {
+            hearts.push({ x: Math.random() * (canvas.width - 30), y: -30, width: 30, height: 30, speed: 2 + Math.random() * 2 });
+        }
+    }
+    function spawnMud() {
+        if (mudImg.complete && mudImg.naturalWidth > 0) {
+            muds.push({ x: Math.random() * (canvas.width - 40), y: -40, width: 40, height: 40, speed: 2 + Math.random() * 3 });
+        }
+    }
+
+    let keys = {};
+    document.addEventListener('keydown', e => keys[e.key] = true);
+    document.addEventListener('keyup', e => keys[e.key] = false);
+
+    let touchX = null;
+    canvas.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+    canvas.addEventListener('touchmove', e => {
+        if (!gameRunning || touchX === null) return;
+        const newX = e.touches[0].clientX;
+        const delta = newX - touchX;
+        player.x += delta;
+        player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+        touchX = newX;
+    });
+
+    function playSound(sound) {
+        if (!sound) return;
+        const clone = sound.cloneNode();
+        clone.play().catch(() => {});
+    }
+
+    function update() {
+        if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+        if (keys['ArrowRight'] && player.x < canvas.width - player.width) player.x += player.speed;
+
+        for (let i = hearts.length - 1; i >= 0; i--) {
+            let h = hearts[i];
+            h.y += h.speed;
+            if (h.y > canvas.height) hearts.splice(i, 1);
+            else if (h.x < player.x + player.width && h.x + h.width > player.x && h.y < player.y + player.height && h.y + h.height > player.y) {
+                score++;
+                playSound(collectSound);
+                hearts.splice(i, 1);
+            }
+        }
+
+        for (let i = muds.length - 1; i >= 0; i--) {
+            let m = muds[i];
+            m.y += m.speed;
+            if (m.y > canvas.height) muds.splice(i, 1);
+            else if (m.x < player.x + player.width && m.x + m.width > player.x && m.y < player.y + player.height && m.y + m.height > player.y) {
+                lives--;
+                playSound(hitSound);
+                muds.splice(i, 1);
+            }
+        }
+
+        if (lives <= 0) endGame();
+        document.getElementById('scoreboard').innerText = `Score: ${score} | Lives: ${lives}`;
+    }
+
+    let heartInterval, mudInterval;
+    function startSpawning() {
+        heartInterval = setInterval(() => { if (gameRunning) spawnHeart(); }, 1500);
+        mudInterval = setInterval(() => { if (gameRunning) spawnMud(); }, 2500);
+    }
+    function stopSpawning() {
+        clearInterval(heartInterval);
+        clearInterval(mudInterval);
+    }
+
+    function startGame() {
+        score = 0; lives = 3; hearts.length = 0; muds.length = 0; gameRunning = true;
+        document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('startScreen').style.display = 'none';
+        startSpawning();
+        gameLoop();
+    }
+
+    function endGame() {
+        gameRunning = false;
+        stopSpawning();
+        document.getElementById('finalScore').innerText = `Score: ${score}`;
+        document.getElementById('gameOverScreen').style.display = 'flex';
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (kittyImg.complete && kittyImg.naturalWidth > 0) ctx.drawImage(kittyImg, player.x, player.y, player.width, player.height);
+        hearts.forEach(h => { if (heartImg.complete && heartImg.naturalWidth > 0) ctx.drawImage(heartImg, h.x, h.y, h.width, h.height); });
+        muds.forEach(m => { if (mudImg.complete && mudImg.naturalWidth > 0) ctx.drawImage(mudImg, m.x, m.y, m.width, m.height); });
+    }
+
+    function gameLoop() { if (gameRunning) { update(); draw(); requestAnimationFrame(gameLoop); } }
+
+    document.getElementById('startButton').addEventListener('click', () => { if (imagesLoaded === 3) startGame(); else alert('Loading assets… please wait!'); });
+    document.getElementById('restartButton').addEventListener('click', () => { if (imagesLoaded === 3) startGame(); else alert('Loading assets… please wait!'); });
+</script>
+</body>
+</html>
